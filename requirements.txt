@@ -1,0 +1,26 @@
+# Core video processing
+opencv-python>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+moviepy>=1.0.3
+
+# FastAPI web framework
+fastapi>=0.100.0
+uvicorn>=0.23.0
+slowapi>=0.1.9
+python-multipart>=0.0.6
+aiofiles>=23.0.0
+jinja2>=3.1.0
+
+# Translation services
+googletrans==4.0.0rc1
+deep-translator>=1.11.0
+pykakasi>=2.2.0
+
+# HTTP and SSL
+urllib3>=1.26.0
+certifi>=2021.5.25
+
+# Additional utilities
+typing-extensions>=4.0.0
+gunicorn>=21.0.0

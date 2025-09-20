@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OG Code Generator</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="title">OG Code Generator</h1>
+            <p class="subtitle">Create your unique OG Code and Video based on your name and birthday</p>
+        </header>
+
+        <!-- Main Form -->
+        <main class="main">
+            <form id="videoForm" class="form">
+                <div class="form-group">
+                    <label for="name" class="label">Your Name</label>
+                    <input 
+                        type="text" 
+                        id="name" 
+                        name="name" 
+                        class="input" 
+                        placeholder="Enter your full name"
+                        minlength="2"
+                        maxlength="50"
+                        required
+                        autocomplete="name"
+                    >
+                    <div class="error-message" id="nameError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="birthday" class="label">Date of Birth</label>
+                    <input 
+                        type="date" 
+                        id="birthday" 
+                        name="birthday" 
+                        class="input" 
+                        required
+                        max="2024-12-31"
+                        min="1900-01-01"
+                    >
+                    <div class="error-message" id="birthdayError"></div>
+                </div>
+
+                <button type="submit" id="submitBtn" class="submit-btn">
+                    <span class="btn-text">Generate My Code/Video</span>
+                    <span class="btn-loading" style="display: none;">
+                        <div class="spinner"></div>
+                        Processing...
+                    </span>
+                </button>
+            </form>
+
+            <!-- Preview Section -->
+            <div id="previewSection" class="preview-section" style="display: none;">
+                <h3 class="preview-title">Your OG Code</h3>
+                <div id="previewContent" class="preview-content"></div>
+            </div>
+
+            <!-- Result Section -->
+            <div id="resultSection" class="result-section" style="display: none;">
+                <!-- Generating State -->
+                <div id="generatingMessage" class="generating-message">
+                    <h3>🎬 Generating Your Video...</h3>
+                    <p>Please wait while we create your personalized video. This may take 20-30 seconds.</p>
+                </div>
+                
+                <!-- Success State -->
+                <div id="successMessage" class="success-message" style="display: none;">
+                    <h3>✅ Video Generated Successfully!</h3>
+                    <p>Your personalized code and video is ready to watch and download.</p>
+                </div>
+                
+                <div id="resultContent" class="result-content"></div>
+                
+                <!-- Video Player Section -->
+                <div id="videoPlayerSection" class="video-player-section">
+                    <div class="video-container">
+                        <video 
+                            id="generatedVideo" 
+                            class="generated-video"
+                            controls
+                            preload="none"
+                            poster=""
+                            playsinline
+                            webkit-playsinline
+                            muted
+                            crossorigin="anonymous"
+                        >
+                            <source id="videoSource" src="" type="video/mp4">
+                            <p class="video-fallback">
+                                Your browser doesn't support HTML5 video. 
+                                <a id="fallbackDownload" href="#" download>Download the video instead</a>.
+                            </p>
+                        </video>
+                        <div id="videoLoading" class="video-loading" style="display: none;">
+                            <div class="loading-spinner"></div>
+                            <p>Generating your personalized video...</p>
+                            <p class="loading-subtitle">This may take 20-30 seconds</p>
+                        </div>
+                        <div id="videoError" class="video-error" style="display: none;">
+                            <p>⚠️ Unable to load video for preview</p>
+                            <p>You can still download your video below.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <a id="downloadBtn" href="#" class="download-btn" download title="Download Your Video">
+                    <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7,10 12,15 17,10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </a>
+                
+                <!-- Social Media Sharing Section -->
+                <div id="sharingSection" class="sharing-section" style="display: none;">
+                    <h4 class="sharing-title">Share Your Video</h4>
+                    <div class="sharing-buttons">
+                        <button id="nativeShareBtn" class="share-btn native-share-btn" title="Share Your Video">
+                            <svg class="share-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="18" cy="5" r="3"></circle>
+                                <circle cx="6" cy="12" r="3"></circle>
+                                <circle cx="18" cy="19" r="3"></circle>
+                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="sharingInstructions" class="sharing-instructions" style="display: none;">
+                        <p class="instructions-text">💡 <strong>Tip:</strong> Download the video first, then use the share button to send it directly to your favorite apps!</p>
+                    </div>
+                </div>
+                
+            </div>
+
+            <!-- Error Section -->
+            <div id="errorSection" class="error-section" style="display: none;">
+                <div class="error-message-large">
+                    <h3>❌ Something went wrong</h3>
+                    <p id="errorText"></p>
+                    <button id="retryBtn" class="retry-btn">Try Again</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="info-box">
+                <p><strong>How it works:</strong></p>
+                <ul>
+                    <li>First 2 letters of your name</li>
+                    <li>Day from your birthday (09, 19, 31, etc.)</li>
+                    <li>First 2 letters of your star sign</li>
+                </ul>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/static/js/script.js"></script>
+</body>
+</html>
