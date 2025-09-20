@@ -257,13 +257,20 @@ async def generate_video_async(job_id: str, name: str, birthday: str, output_pat
             video_jobs[job_id]['download_url'] = f"/download/{os.path.basename(output_path)}"
             logger.info(f"Video generation completed for job {job_id}: {output_path}")
         else:
-            video_jobs[job_id]['status'] = 'error'
-            video_jobs[job_id]['error'] = 'Video generation failed'
+            video_jobs[job_id]['status'] = 'failed'
+            video_jobs[job_id]['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
+            video_jobs[job_id]['message'] = 'Generation failed - high server load'
             logger.error(f"Video generation failed for job {job_id}")
 
     except Exception as e:
-        video_jobs[job_id]['status'] = 'error'
-        video_jobs[job_id]['error'] = str(e)
+        video_jobs[job_id]['status'] = 'failed'
+        # Provide user-friendly error message for high demand scenarios
+        if "timeout" in str(e).lower() or "memory" in str(e).lower():
+            video_jobs[job_id]['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
+            video_jobs[job_id]['message'] = 'Generation failed - high server load'
+        else:
+            video_jobs[job_id]['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
+            video_jobs[job_id]['message'] = 'Generation failed - please retry'
         logger.error(f"Async video generation error for job {job_id}: {e}")
 
 def cleanup_old_files():
@@ -394,7 +401,13 @@ async def generate_video(request: Request, data: GenerateRequest, background_tas
 async def get_job_status(job_id: str):
     """Get video generation job status"""
     if job_id not in video_jobs:
-        raise HTTPException(status_code=404, detail="Job not found")
+        # Job was lost due to worker crash - return user-friendly error
+        return JobStatusResponse(
+            status='failed',
+            message='Generation failed - high server load',
+            download_url=None,
+            error='Video could not be generated due to high demand. Please try again after 10 minutes.'
+        )
 
     job = video_jobs[job_id]
     return JobStatusResponse(

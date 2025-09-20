@@ -169,17 +169,22 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY . .
 EXPOSE 8000
-CMD ["gunicorn", "app_fastapi:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "app:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "120"]
 ```
 
 ### Production Deployment
 ```bash
 # With Gunicorn + Uvicorn workers (recommended)
-gunicorn app:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+gunicorn app:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --timeout 120
+
+# For cloud platforms with $PORT environment variable
+gunicorn app:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
 
 # Direct Uvicorn
 uvicorn app:app --host 0.0.0.0 --port 8000 --workers 4
 ```
+
+**Important**: The `--timeout 120` setting is crucial for video processing operations that can take 60-90 seconds to complete.
 
 ## 🧪 Testing
 
