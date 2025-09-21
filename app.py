@@ -174,7 +174,7 @@ def is_valid_name(name: str) -> bool:
     try:
         if not name or len(name.strip()) == 0:
             return False
-        if len(name.strip()) > 50:
+        if len(name.strip()) > 10:
             return False
         if re.search(r'[<>"/\\|?*:\x00-\x1f]', name):
             return False
@@ -352,6 +352,14 @@ def generate_video_with_semaphore(job_id: str, name: str, birthday: str, output_
                 job_data['download_url'] = f"/download/{os.path.basename(output_path)}"
                 job_data['video_url'] = f"/video/{os.path.basename(output_path)}"
                 set_job_status(job_id, job_data)
+
+                # Increment video counter for successful generation
+                try:
+                    redis_client.incr("total_videos_generated")
+                    logger.info(f"📊 Incremented video counter")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to increment video counter: {e}")
+
                 logger.info(f"✅ Job {job_id} completed successfully: {output_path}")
             else:
                 job_data['status'] = 'failed'
@@ -701,6 +709,25 @@ async def cleanup_session_files(request: Request, data: CleanupRequest):
     except Exception as e:
         logger.error(f"Cleanup error: {e}")
         raise HTTPException(status_code=500, detail="Cleanup failed")
+
+@app.get("/count")
+async def get_video_count():
+    """Get total number of videos generated"""
+    try:
+        count = redis_client.get("total_videos_generated")
+        total_count = int(count) if count else 0
+
+        return JSONResponse(content={
+            'success': True,
+            'total_videos_generated': total_count
+        })
+    except Exception as e:
+        logger.error(f"Failed to get video count: {e}")
+        return JSONResponse(content={
+            'success': False,
+            'total_videos_generated': 0,
+            'error': 'Could not retrieve count'
+        })
 
 # Startup event
 @app.on_event("startup")

@@ -271,6 +271,14 @@ body::before {
     display: block;
 }
 
+.char-counter {
+    font-size: 0.75rem;
+    color: #666;
+    text-align: right;
+    margin-top: 0.25rem;
+    transition: color 0.2s ease;
+}
+
 /* Submit Button */
 .submit-btn {
     width: 100%;

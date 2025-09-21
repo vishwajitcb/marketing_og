@@ -22,17 +22,18 @@
             <form id="videoForm" class="form">
                 <div class="form-group">
                     <label for="name" class="label">Your Name</label>
-                    <input 
-                        type="text" 
-                        id="name" 
-                        name="name" 
-                        class="input" 
-                        placeholder="Enter your full name"
+                    <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        class="input"
+                        placeholder="Enter your name (max 10 chars)"
                         minlength="2"
-                        maxlength="50"
+                        maxlength="10"
                         required
                         autocomplete="name"
                     >
+                    <div class="char-counter" id="nameCounter">0/10</div>
                     <div class="error-message" id="nameError"></div>
                 </div>
 

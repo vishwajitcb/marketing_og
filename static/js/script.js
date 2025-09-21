@@ -8,6 +8,7 @@ class VideoProcessor {
         this.form = document.getElementById('videoForm');
         this.nameInput = document.getElementById('name');
         this.birthdayInput = document.getElementById('birthday');
+        this.nameCounter = document.getElementById('nameCounter');
         this.submitBtn = document.getElementById('submitBtn');
         this.btnText = this.submitBtn.querySelector('.btn-text');
         this.btnLoading = this.submitBtn.querySelector('.btn-loading');
@@ -52,6 +53,7 @@ class VideoProcessor {
         this.setupDateInput();
         this.setupVideoPlayer();
         this.setupCleanupHandlers();
+        this.setupCharacterCounter();
     }
     
     setupEventListeners() {
@@ -110,9 +112,32 @@ class VideoProcessor {
         const today = new Date();
         const maxDate = today.toISOString().split('T')[0];
         const minDate = new Date(today.getFullYear() - 120, 0, 1).toISOString().split('T')[0];
-        
+
         this.birthdayInput.setAttribute('max', maxDate);
         this.birthdayInput.setAttribute('min', minDate);
+    }
+
+    setupCharacterCounter() {
+        // Update character counter as user types
+        const updateCounter = () => {
+            const currentLength = this.nameInput.value.length;
+            this.nameCounter.textContent = `${currentLength}/10`;
+
+            // Change color if approaching limit
+            if (currentLength >= 9) {
+                this.nameCounter.style.color = '#ff6b6b';
+            } else if (currentLength >= 7) {
+                this.nameCounter.style.color = '#ffa726';
+            } else {
+                this.nameCounter.style.color = '#666';
+            }
+        };
+
+        // Update counter on input
+        this.nameInput.addEventListener('input', updateCounter);
+
+        // Initialize counter
+        updateCounter();
     }
     
     setupVideoPlayer() {
@@ -676,11 +701,10 @@ class VideoProcessor {
         try {
             // Check if Web Share API is supported
             if (navigator.share) {
-                const videoUrl = this.downloadBtn.href;
                 const shareData = {
-                    title: 'My Personalized Japanese Character Video',
-                    text: 'Check out my personalized Japanese character video! 🎌✨',
-                    url: videoUrl
+                    title: 'My Personalized OG Video',
+                    text: 'Checkout my personalized OG video. Firestorm is coming. Get yours at https://marketing-og-beta.onrender.com',
+                    url: 'https://marketing-og-beta.onrender.com'
                 };
                 
                 // Try to share with files if supported
@@ -784,8 +808,8 @@ class VideoProcessor {
     }
     
     showFallbackSharing() {
-        const videoUrl = this.downloadBtn.href;
-        const message = "Check out my personalized Japanese character video! 🎌✨";
+        const websiteUrl = 'https://marketing-og-beta.onrender.com';
+        const message = "Checkout my personalized OG video. Firestorm is coming. Get yours at https://marketing-og-beta.onrender.com";
         
         // Show a modal with sharing options
         const modal = document.createElement('div');
@@ -816,15 +840,15 @@ class VideoProcessor {
                     Choose how you'd like to share your video:
                 </p>
                 <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <button onclick="navigator.clipboard.writeText('${videoUrl}').then(() => alert('Link copied!'))" 
+                    <button onclick="navigator.clipboard.writeText('${message}').then(() => alert('Message copied!'))"
                             style="padding: 0.75rem; background: var(--primary-color); color: white; border: none; border-radius: var(--radius-md); cursor: pointer;">
-                        📋 Copy Link
+                        📋 Copy Message
                     </button>
-                    <button onclick="window.open('https://wa.me/?text=${encodeURIComponent(message + ' ' + videoUrl)}', '_blank')" 
+                    <button onclick="window.open('https://wa.me/?text=${encodeURIComponent(message)}', '_blank')"
                             style="padding: 0.75rem; background: #25d366; color: white; border: none; border-radius: var(--radius-md); cursor: pointer;">
                         💬 Share to WhatsApp
                     </button>
-                    <button onclick="window.open('https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(videoUrl)}', '_blank')" 
+                    <button onclick="window.open('https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}', '_blank')"
                             style="padding: 0.75rem; background: #1da1f2; color: white; border: none; border-radius: var(--radius-md); cursor: pointer;">
                         🐦 Share to Twitter
                     </button>
