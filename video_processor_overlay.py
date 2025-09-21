@@ -825,7 +825,7 @@ class VideoProcessorOverlay:
                 '-crf', '30',       # Lower quality for speed
                 '-threads', '4',    # Use multiple threads
                 '-tune', 'fastdecode',  # Optimize for speed
-                '-vf', 'scale=720:1280'  # Reduce resolution for speed
+                '-vf', 'scale=720:1280',  # Reduce resolution for speed
                 output_path
             ])
 
