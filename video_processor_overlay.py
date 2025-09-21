@@ -244,14 +244,15 @@ class VideoProcessorOverlay:
         except:
             return None
     
-    def _load_japan_ramen_font(self) -> Optional[ImageFont.FreeTypeFont]:
+    def _load_japan_ramen_font(self, font_size: int = None) -> Optional[ImageFont.FreeTypeFont]:
         """Load HiraginoSans.ttc font with RAQM layout support"""
         font_path = "HiraginoSans.ttc"
+        effective_font_size = font_size if font_size is not None else self.font_size
 
         try:
             # Use RAQM layout engine for proper Japanese text rendering
-            font = ImageFont.truetype(font_path, self.font_size, layout_engine=ImageFont.Layout.RAQM)
-            self.logger.info(f"✅ Using HiraginoSans.ttc with RAQM layout")
+            font = ImageFont.truetype(font_path, effective_font_size, layout_engine=ImageFont.Layout.RAQM)
+            self.logger.info(f"✅ Using HiraginoSans.ttc with RAQM layout (size: {effective_font_size})")
             return font
         except Exception as e:
             self.logger.error(f"❌ Could not load HiraginoSans.ttc: {e}")
@@ -298,7 +299,7 @@ class VideoProcessorOverlay:
         # Fallback (EXACT COPY from lean version)
         return ImageFont.load_default()
     
-    def _load_geishta_font(self) -> Optional[ImageFont.FreeTypeFont]:
+    def _load_geishta_font(self, font_size: int = None) -> Optional[ImageFont.FreeTypeFont]:
         """Load Geishta font for English names with larger size"""
         geishta_fonts = [
             "Geishta.ttf",
@@ -308,9 +309,10 @@ class VideoProcessorOverlay:
             "Geishta-Regular.ttf",
             "Geishta-Regular.otf"
         ]
-        
+
         # Use larger font size for Geishta to match visual size of Japanese font
-        geishta_font_size = int(self.font_size * 2)  # 100% larger
+        base_font_size = font_size if font_size is not None else self.font_size
+        geishta_font_size = int(base_font_size * 2)  # 100% larger
         
         for font_path in geishta_fonts:
             if os.path.exists(font_path):
@@ -444,19 +446,22 @@ class VideoProcessorOverlay:
         z = star_sign[:2].upper()
         return x, y, z
     
-    def _create_text_overlay_png(self, text: str, width: int, height: int, filename: str, shift_up: bool = False, use_geishta: bool = False) -> str:
+    def _create_text_overlay_png(self, text: str, width: int, height: int, filename: str, shift_up: bool = False, use_geishta: bool = False, font_size: int = None, scale_factor: float = 1.0) -> str:
         """Create transparent text overlay as PNG file - EXACT COPY FROM LEAN VERSION"""
         # Create transparent image (RGBA) - modified from lean version for transparency
         img = Image.new('RGBA', (width, height), (0, 0, 0, 0))  # Transparent background
         draw = ImageDraw.Draw(img)
         
-        # Choose the appropriate font
+        # Use provided font size or default to instance font size
+        effective_font_size = font_size if font_size is not None else self.font_size
+
+        # Choose the appropriate font with scaled size
         if use_geishta:
-            # English text - use Geishta font
-            font_to_use = self._load_geishta_font()
+            # English text - use Geishta font with scaled size
+            font_to_use = self._load_geishta_font(effective_font_size)
         else:
-            # Japanese text - use the Japanese font (which now has RAQM support)
-            font_to_use = self.font
+            # Japanese text - use the Japanese font with scaled size
+            font_to_use = self._load_japan_ramen_font(effective_font_size)
         
         if font_to_use:
             try:
@@ -478,9 +483,10 @@ class VideoProcessorOverlay:
                 x = (width - text_width) // 2
                 y = (height - text_height) // 2
 
-                # Apply Y-axis shift if requested (660 pixels up)
+                # Apply Y-axis shift if requested (660 pixels up, scaled for resolution)
                 if shift_up:
-                    y = y - 660
+                    scaled_shift = int(660 * scale_factor)
+                    y = y - scaled_shift
 
                 # Draw text in bright red with Japanese language support
                 if use_geishta:
@@ -497,17 +503,19 @@ class VideoProcessorOverlay:
                 self.logger.error(f"❌ Text positioning error for '{text}': {e}")
                 # Enhanced fallback with better positioning
                 y_pos = height // 4 if height > width else height // 2
-                # Apply Y-axis shift if requested (660 pixels up)
+                # Apply Y-axis shift if requested (660 pixels up, scaled for resolution)
                 if shift_up:
-                    y_pos = y_pos - 660
+                    scaled_shift = int(660 * scale_factor)
+                    y_pos = y_pos - scaled_shift
                 draw.text((width // 2 - 100, y_pos - 50), text, fill=(255, 0, 0, 255), font=font_to_use)
                 self.logger.info(f"⚠️ Used exception fallback positioning for '{text}' at ({width // 2 - 100}, {y_pos - 50})")
         else:
             # EXACT COPY from lean version fallback
             y_pos = height // 4 if height > width else height // 2
-            # Apply Y-axis shift if requested (660 pixels up)
+            # Apply Y-axis shift if requested (660 pixels up, scaled for resolution)
             if shift_up:
-                y_pos = y_pos - 660
+                scaled_shift = int(660 * scale_factor)
+                y_pos = y_pos - scaled_shift
             draw.text((width // 2 - 100, y_pos - 50), text, fill=(255, 0, 0, 255))
         
         # Save as PNG file
@@ -515,11 +523,11 @@ class VideoProcessorOverlay:
         self.logger.info(f"✅ Created overlay PNG: {filename}")
         return filename
     
-    def _create_text_overlay(self, text: str, width: int, height: int, shift_up: bool = False, use_geishta: bool = False) -> np.ndarray:
+    def _create_text_overlay(self, text: str, width: int, height: int, shift_up: bool = False, use_geishta: bool = False, font_size: int = None, scale_factor: float = 1.0) -> np.ndarray:
         """Create transparent text overlay with red text - using PNG approach"""
         # Create temporary PNG file
         temp_filename = f"temp_overlay_{hash(text)}.png"
-        png_file = self._create_text_overlay_png(text, width, height, temp_filename, shift_up, use_geishta)
+        png_file = self._create_text_overlay_png(text, width, height, temp_filename, shift_up, use_geishta, font_size, scale_factor)
         
         # Load the PNG file as numpy array
         img = Image.open(png_file)
@@ -615,6 +623,12 @@ class VideoProcessorOverlay:
             self.logger.info(f"Video properties - FPS: {fps}, Original: {original_width}x{original_height}, Processing: {width}x{height}, Duration: {duration:.2f}s")
             self.logger.info(f"💾 Memory optimization: Processing at {width}x{height} to reduce RAM usage by ~75%")
             
+            # Calculate scaled font size based on processing resolution
+            # Original font was designed for 1080x1920, scale proportionally
+            scale_factor = height / 1920.0  # height ratio for scaling
+            scaled_font_size = int(self.font_size * scale_factor)
+            self.logger.info(f"🔤 Font scaling: Original {self.font_size} → Scaled {scaled_font_size} (scale: {scale_factor:.2f})")
+
             # Create text overlays for each slot
             japanese_name = self._translate_to_japanese(name)  # Full name in Japanese
             characters = [m, n, o, f"{m} {n} {o}", japanese_name, name]  # ジョ, 十五, タ, ジョ 十五 タ, Japanese name, English name
@@ -622,7 +636,7 @@ class VideoProcessorOverlay:
             for i, char in enumerate(characters):
                 shift_up = i >= 4  # Shift up for overlays 5 and 6
                 use_geishta = i == 5  # Use Geishta font for overlay 6 (English name)
-                overlay = self._create_text_overlay(char, width, height, shift_up, use_geishta)
+                overlay = self._create_text_overlay(char, width, height, shift_up, use_geishta, scaled_font_size, scale_factor)
                 text_overlays.append(overlay)
                 font_info = " (Geishta font)" if use_geishta else ""
                 self.logger.info(f"Created overlay {i+1}: '{char}'{font_info}")
