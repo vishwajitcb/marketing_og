@@ -26,15 +26,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Copy and setup entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
 # Create data directories
 RUN mkdir -p /data/outputs outputs
 
 # Expose port
 EXPOSE 8000
 
-# Use entrypoint script to start Redis and app
-ENTRYPOINT ["/entrypoint.sh"]
+# Start Redis and application with embedded commands
+CMD ["sh", "-c", "redis-server --daemonize yes --port 6379 && sleep 2 && until redis-cli ping >/dev/null 2>&1; do echo 'Waiting for Redis...'; sleep 1; done && echo 'Redis is ready!' && exec gunicorn app:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --timeout 300 --worker-connections 1000 --max-requests 1000 --max-requests-jitter 100 --preload"]
