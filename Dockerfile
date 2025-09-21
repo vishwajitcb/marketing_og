@@ -26,11 +26,18 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Copy Japanese font to system fonts directory
+COPY HiraginoSans.ttc /usr/share/fonts/truetype/
+RUN fc-cache -fv
+
 # Create data directories
 RUN mkdir -p /data/outputs outputs
 
 # Expose port
 EXPOSE 8000
 
-# Start Redis and application with embedded commands
-CMD ["sh", "-c", "redis-server --daemonize yes --port 6379 && sleep 2 && until redis-cli ping >/dev/null 2>&1; do echo 'Waiting for Redis...'; sleep 1; done && echo 'Redis is ready!' && exec gunicorn app:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --timeout 300 --worker-connections 1000 --max-requests 1000 --max-requests-jitter 100 --preload"]
+# Set environment variable for output directory
+ENV SSD_MOUNT_PATH=/data/outputs
+
+# Start Redis and application optimized for 20 concurrent video processing
+CMD ["sh", "-c", "redis-server --daemonize yes --port 6379 && sleep 2 && until redis-cli ping >/dev/null 2>&1; do echo 'Waiting for Redis...'; sleep 1; done && echo 'Redis is ready!' && exec gunicorn app:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --timeout 600 --worker-connections 100 --max-requests 500 --max-requests-jitter 50 --worker-tmp-dir /dev/shm --preload"]

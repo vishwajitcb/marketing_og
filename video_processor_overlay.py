@@ -603,12 +603,17 @@ class VideoProcessorOverlay:
             
             # Get video properties
             fps = cap.get(cv2.CAP_PROP_FPS)
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             duration = total_frames / fps
-            
-            self.logger.info(f"Video properties - FPS: {fps}, Resolution: {width}x{height}, Duration: {duration:.2f}s")
+
+            # Use half resolution for processing to save memory (75% memory reduction)
+            width = original_width // 2
+            height = original_height // 2
+
+            self.logger.info(f"Video properties - FPS: {fps}, Original: {original_width}x{original_height}, Processing: {width}x{height}, Duration: {duration:.2f}s")
+            self.logger.info(f"💾 Memory optimization: Processing at {width}x{height} to reduce RAM usage by ~75%")
             
             # Create text overlays for each slot
             japanese_name = self._translate_to_japanese(name)  # Full name in Japanese
@@ -634,18 +639,14 @@ class VideoProcessorOverlay:
             cap.release()
             out.release()
 
-            # Try FFmpeg optimization first, fallback to frame-by-frame if it fails
-            self.logger.info(f"🚀 Attempting FFmpeg optimization - Duration: {duration:.2f}s")
-            success = self._process_video_with_ffmpeg_overlays_fixed(input_path, temp_video_path, text_overlays, characters, width, height)
+            # Process video using FFmpeg optimization
+            self.logger.info(f"🚀 Processing video with FFmpeg - Duration: {duration:.2f}s")
+            success = self._process_video_with_ffmpeg_overlays_fixed(input_path, temp_video_path, text_overlays, characters, width, height, original_width, original_height)
 
-            if not success:
-                self.logger.warning("⚠️ FFmpeg optimization failed, using reliable frame-by-frame method")
-                success = self._process_video_frame_by_frame_fallback(input_path, temp_video_path, text_overlays, characters, width, height, fps, total_frames)
-            else:
+            if success:
                 self.logger.info("✅ Video processed successfully using FFmpeg optimization")
-
-            if not success:
-                self.logger.error("Both FFmpeg and frame-by-frame processing failed")
+            else:
+                self.logger.error("❌ FFmpeg processing failed")
                 return False
             
             # Add audio back to the processed video - CRITICAL STEP
@@ -724,7 +725,7 @@ class VideoProcessorOverlay:
             self.logger.info(f"🎵 Running FFmpeg command: {' '.join(cmd)}")
             
             # Run FFmpeg command
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
             
             if result.returncode == 0:
                 # Verify the audio file was created and has content
@@ -788,7 +789,7 @@ class VideoProcessorOverlay:
             self.logger.error(f"MoviePy audio extraction traceback: {traceback.format_exc()}")
             return None
 
-    def _process_video_with_ffmpeg_overlays_fixed(self, input_path: str, output_path: str, text_overlays: list, characters: list, width: int, height: int) -> bool:
+    def _process_video_with_ffmpeg_overlays_fixed(self, input_path: str, output_path: str, text_overlays: list, characters: list, width: int, height: int, original_width: int = None, original_height: int = None) -> bool:
         """Process video using FFmpeg overlay filters - 8-10x faster than frame-by-frame"""
         try:
             if not FFMPEG_AVAILABLE:
@@ -808,8 +809,8 @@ class VideoProcessorOverlay:
                     self.logger.error(f"❌ Failed to save overlay {i+1} to {temp_overlay}")
                     return False
 
-            # Build complex FFmpeg filter
-            filter_complex = self._build_ffmpeg_filter_complex(overlay_files, characters, width, height)
+            # Build complex FFmpeg filter with scaling
+            filter_complex = self._build_ffmpeg_filter_complex_with_scaling(overlay_files, characters, width, height, original_width or width, original_height or height)
             self.logger.info(f"📐 FFmpeg filter complex: {filter_complex[:200]}...")  # Log first 200 chars
 
             # Build FFmpeg command
@@ -829,7 +830,7 @@ class VideoProcessorOverlay:
                 '-c:v', 'libx264',  # Video codec
                 '-preset', 'ultrafast',   # Fastest encoding
                 '-crf', '30',       # Lower quality for speed
-                '-threads', '4',    # Use multiple threads
+                '-threads', '1',    # Single thread to reduce memory usage
                 '-tune', 'fastdecode',  # Optimize for speed
                 output_path
             ])
@@ -839,7 +840,7 @@ class VideoProcessorOverlay:
             self.logger.info(f"FFmpeg command: {' '.join(cmd[:10])}... ({len(cmd)} total args)")
 
             try:
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=50)
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
                 self.logger.info(f"✅ FFmpeg subprocess completed with return code: {result.returncode}")
                 if result.stderr:
                     self.logger.info(f"FFmpeg stderr: {result.stderr[:500]}")  # Log first 500 chars
@@ -850,7 +851,7 @@ class VideoProcessorOverlay:
                 self.logger.error(f"❌ FFmpeg permission denied: {e}")
                 return False
             except subprocess.TimeoutExpired as e:
-                self.logger.error(f"❌ FFmpeg timeout after 50 seconds: {e}")
+                self.logger.error(f"❌ FFmpeg timeout after 120 seconds: {e}")
                 return False
             except Exception as e:
                 self.logger.error(f"❌ FFmpeg subprocess failed: {e}")
@@ -908,51 +909,38 @@ class VideoProcessorOverlay:
 
         return "; ".join(filter_parts)
 
-    def _process_video_frame_by_frame_fallback(self, input_path: str, output_path: str, text_overlays: list, characters: list, width: int, height: int, fps: float, total_frames: int) -> bool:
-        """Fallback frame-by-frame processing method (slower but reliable)"""
-        try:
-            self.logger.info("🐌 Using fallback frame-by-frame processing...")
+    def _build_ffmpeg_filter_complex_with_scaling(self, overlay_files: list, characters: list, width: int, height: int, original_width: int, original_height: int) -> str:
+        """Build FFmpeg filter complex with memory-efficient scaling: downscale -> overlay -> upscale"""
+        filter_parts = []
 
-            cap = cv2.VideoCapture(input_path)
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        # Step 1: Scale input video down to processing resolution (saves 75% memory)
+        filter_parts.append(f"[0:v]scale={width}:{height}[scaled_input]")
 
-            if not out.isOpened():
-                raise ValueError(f"Could not create video writer: {output_path}")
+        current_label = "scaled_input"
 
-            frame_count = 0
-            while frame_count < total_frames:
-                ret, frame = cap.read()
-                if not ret:
-                    self.logger.warning(f"Failed to read frame {frame_count}, stopping processing")
-                    break
+        # Step 2: Apply overlays at lower resolution
+        for i, (start_time, end_time) in enumerate(self.overlay_timestamps):
+            if i >= len(overlay_files):
+                break
 
-                current_time = frame_count / fps
-                modified_frame = frame.copy()
+            output_label = f"v{i+1}" if i < len(self.overlay_timestamps) - 1 else "overlaid"
 
-                # Apply overlays based on timing
-                for i, (start_time, end_time) in enumerate(self.overlay_timestamps):
-                    if start_time <= current_time <= end_time and i < len(text_overlays):
-                        modified_frame = self._overlay_text_on_frame(modified_frame, text_overlays[i])
-                        # Change to INFO level for visibility
-                        if frame_count % int(fps) == 0:  # Log once per second
-                            self.logger.info(f"🎨 Overlaying '{characters[i]}' at {current_time:.2f}s (frame {frame_count})")
+            # Scale overlay to match processing resolution
+            filter_parts.append(f"[{i+1}:v]scale={width}:{height}[overlay_{i}]")
 
-                out.write(modified_frame)
-                frame_count += 1
+            # Apply overlay with timing
+            filter_part = f"[{current_label}][overlay_{i}]overlay=(W-w)/2:(H-h)/2:enable='between(t,{start_time},{end_time})'[{output_label}]"
+            filter_parts.append(filter_part)
+            current_label = output_label
 
-                if frame_count % (int(fps * 5)) == 0:
-                    progress = (frame_count / total_frames) * 100
-                    self.logger.info(f"Fallback progress: {progress:.1f}%")
+        # Step 3: Scale final result back to original resolution
+        if original_width != width or original_height != height:
+            filter_parts.append(f"[{current_label}]scale={original_width}:{original_height}[final]")
+        else:
+            # If no scaling needed, just rename the final output
+            filter_parts.append(f"[{current_label}]copy[final]")
 
-            self.logger.info(f"Fallback processing completed - Processed {frame_count} frames")
-            cap.release()
-            out.release()
-            return True
-
-        except Exception as e:
-            self.logger.error(f"Fallback processing failed: {e}")
-            return False
+        return "; ".join(filter_parts)
 
     def _add_audio_to_video(self, video_path: str, audio_path: str, output_path: str) -> bool:
         """Add audio back to processed video"""

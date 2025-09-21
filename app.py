@@ -7,17 +7,17 @@ High-performance, async video processing with bulletproof design
 import os
 import re
 import logging
-import tempfile
 import uuid
 import threading
 import time
 import json
 from datetime import datetime, date
-from typing import Tuple, Optional, Dict, Union
+from typing import Tuple, Optional, Dict
+from concurrent.futures import ThreadPoolExecutor
 import traceback
 
 # FastAPI imports
-from fastapi import FastAPI, Request, HTTPException, BackgroundTasks, File, UploadFile
+from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -26,7 +26,6 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from pydantic import BaseModel
-import aiofiles
 
 # Import our video processor
 from video_processor_overlay import VideoProcessorOverlay
@@ -77,6 +76,14 @@ redis_client = redis.Redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:63
 # Fallback dictionaries (for backwards compatibility during transition)
 video_jobs: Dict[str, Dict] = {}
 user_sessions: Dict[str, Dict] = {}
+
+# Concurrent processing setup for 20 simultaneous videos
+MAX_CONCURRENT_VIDEOS = 20
+video_processing_semaphore = threading.Semaphore(MAX_CONCURRENT_VIDEOS)
+video_executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_VIDEOS, thread_name_prefix="VideoWorker")
+
+# Active jobs tracking for monitoring
+active_jobs = {}
 
 # Redis helper functions
 def set_job_status(job_id: str, job_data: dict):
@@ -214,7 +221,7 @@ def normalize_birthday(birthday: str) -> str:
     """Normalize birthday to YYYY-MM-DD format"""
     birthday = birthday.strip()
 
-    for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y', '%d/%m/%Y', '%d-%m-%Y']:
+    for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%m-%d-%Y', '%d/%m/%Y', '%d-%m-%Y', '%Y/%m/%d']:
         try:
             parsed_date = datetime.strptime(birthday, fmt)
             return parsed_date.strftime('%Y-%m-%d')
@@ -233,13 +240,13 @@ def get_extracted_data(name: str, birthday: str) -> Tuple[str, str, str, str, st
         normalized_birthday = normalize_birthday(birthday)
         try:
             if '/' in normalized_birthday:
-                month, day = map(int, normalized_birthday.split('/')[:2])
+                _, day = map(int, normalized_birthday.split('/')[:2])
             elif '-' in normalized_birthday:
                 parts = normalized_birthday.split('-')
                 if len(parts) == 3:
-                    month, day = int(parts[1]), int(parts[2])
+                    day = int(parts[2])
                 else:
-                    month, day = map(int, parts)
+                    _, day = map(int, parts)
             else:
                 day = int(str(normalized_birthday)[-2:])
         except:
@@ -309,46 +316,65 @@ def get_star_sign(birthday: str) -> str:
         logger.error(f"Star sign error: {e}")
         return "Unknown"
 
-async def generate_video_async(job_id: str, name: str, birthday: str, output_path: str):
-    """Generate video asynchronously"""
+def generate_video_with_semaphore(job_id: str, name: str, birthday: str, output_path: str):
+    """Generate video with semaphore control for memory management"""
     try:
-        logger.info(f"Starting async video generation for job {job_id}")
-        job_data = get_job_status(job_id)
-        job_data['status'] = 'processing'
-        job_data['message'] = 'Processing video...'
-        set_job_status(job_id, job_data)
+        # Acquire semaphore to limit concurrent processing
+        logger.info(f"🚦 Job {job_id} waiting for processing slot (active: {MAX_CONCURRENT_VIDEOS - video_processing_semaphore._value})")
+        with video_processing_semaphore:
+            logger.info(f"🎬 Job {job_id} acquired processing slot, starting generation")
 
-        processor = VideoProcessorOverlay(font_size=120)
-        success = processor.process_video(INPUT_VIDEO, output_path, name, birthday)
+            # Track active job
+            active_jobs[job_id] = {
+                'start_time': time.time(),
+                'name': name,
+                'birthday': birthday
+            }
 
-        logger.info(f"Video processing result - success: {success}, file exists: {os.path.exists(output_path)}, path: {output_path}")
-
-        if success and os.path.exists(output_path):
-            job_data['status'] = 'completed'
-            job_data['message'] = 'Video generation completed!'
-            job_data['download_url'] = f"/download/{os.path.basename(output_path)}"
-            job_data['video_url'] = f"/video/{os.path.basename(output_path)}"
+            # Update job status
+            job_data = get_job_status(job_id)
+            job_data['status'] = 'processing'
+            job_data['message'] = 'Processing video with memory optimization...'
             set_job_status(job_id, job_data)
-            logger.info(f"✅ Job {job_id} marked as completed: {output_path}")
-        else:
-            job_data['status'] = 'failed'
-            job_data['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
-            job_data['message'] = 'Generation failed - high server load'
-            set_job_status(job_id, job_data)
-            logger.error(f"❌ Job {job_id} marked as failed - success: {success}, exists: {os.path.exists(output_path)}")
+
+            # Process video with memory-optimized settings
+            processor = VideoProcessorOverlay(font_size=120)
+            success = processor.process_video(INPUT_VIDEO, output_path, name, birthday)
+
+            # Explicitly clean up processor to free memory
+            del processor
+
+            logger.info(f"Video processing result - success: {success}, file exists: {os.path.exists(output_path)}, path: {output_path}")
+
+            if success and os.path.exists(output_path):
+                job_data['status'] = 'completed'
+                job_data['message'] = 'Video generation completed!'
+                job_data['download_url'] = f"/download/{os.path.basename(output_path)}"
+                job_data['video_url'] = f"/video/{os.path.basename(output_path)}"
+                set_job_status(job_id, job_data)
+                logger.info(f"✅ Job {job_id} completed successfully: {output_path}")
+            else:
+                job_data['status'] = 'failed'
+                job_data['error'] = 'Video generation failed. Please try again.'
+                job_data['message'] = 'Generation failed'
+                set_job_status(job_id, job_data)
+                logger.error(f"❌ Job {job_id} failed - success: {success}, exists: {os.path.exists(output_path)}")
 
     except Exception as e:
         job_data = get_job_status(job_id)
         job_data['status'] = 'failed'
-        # Provide user-friendly error message for high demand scenarios
-        if "timeout" in str(e).lower() or "memory" in str(e).lower():
-            job_data['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
-            job_data['message'] = 'Generation failed - high server load'
-        else:
-            job_data['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
-            job_data['message'] = 'Generation failed - please retry'
+        job_data['error'] = 'Video generation failed. Please try again.'
+        job_data['message'] = 'Generation failed - internal error'
         set_job_status(job_id, job_data)
-        logger.error(f"Async video generation error for job {job_id}: {e}")
+        logger.error(f"Video generation error for job {job_id}: {e}")
+    finally:
+        # Remove from active jobs
+        active_jobs.pop(job_id, None)
+        logger.info(f"🏁 Job {job_id} released processing slot")
+
+def generate_video_async_task(job_id: str, name: str, birthday: str, output_path: str):
+    """Submit video generation to thread pool executor as background task"""
+    video_executor.submit(generate_video_with_semaphore, job_id, name, birthday, output_path)
 
 def cleanup_old_files():
     """Clean up old generated files to prevent disk space issues"""
@@ -412,7 +438,7 @@ async def preview(request: Request, data: PreviewRequest):
         raise HTTPException(status_code=500, detail="Preview failed. Please try again.")
 
 @app.post("/generate")
-@limiter.limit("3/hour")
+@limiter.limit("100/hour")  # Increased for testing
 async def generate_video(request: Request, data: GenerateRequest, background_tasks: BackgroundTasks):
     """Start video generation process"""
     try:
@@ -459,7 +485,7 @@ async def generate_video(request: Request, data: GenerateRequest, background_tas
         star_sign = get_star_sign(normalize_birthday(data.birthday))
 
         # Start async video generation
-        background_tasks.add_task(generate_video_async, job_id, data.name, data.birthday, output_path)
+        background_tasks.add_task(generate_video_async_task, job_id, data.name, data.birthday, output_path)
 
         return JSONResponse(content={
             'success': True,
@@ -502,6 +528,36 @@ async def get_job_status_endpoint(job_id: str):
         video_url=job.get('video_url'),
         error=job.get('error')
     )
+
+@app.get("/system/status")
+async def get_system_status():
+    """Get system and concurrent processing status"""
+    available_slots = video_processing_semaphore._value
+    active_count = MAX_CONCURRENT_VIDEOS - available_slots
+
+    return JSONResponse(content={
+        'success': True,
+        'concurrent_processing': {
+            'max_slots': MAX_CONCURRENT_VIDEOS,
+            'available_slots': available_slots,
+            'active_jobs': active_count,
+            'active_job_details': [
+                {
+                    'job_id': job_id,
+                    'name': details['name'],
+                    'duration': time.time() - details['start_time']
+                }
+                for job_id, details in active_jobs.items()
+            ]
+        },
+        'memory_optimization': {
+            'processing_resolution': '50% of original (540x960 from 1080x1920)',
+            'memory_savings': '~75%',
+            'ffmpeg_threads': 1,
+            'estimated_memory_per_video': '~800MB',
+            'total_estimated_memory': f'~{MAX_CONCURRENT_VIDEOS * 0.8:.1f}GB for {MAX_CONCURRENT_VIDEOS} concurrent videos'
+        }
+    })
 
 @app.get("/download/{filename}")
 async def download_file(filename: str):
@@ -668,6 +724,18 @@ async def startup_event():
     # Ensure input video exists
     if not os.path.exists(INPUT_VIDEO):
         logger.warning(f"Input video not found: {INPUT_VIDEO}")
+
+    logger.info(f"🚀 Concurrent video processing initialized: {MAX_CONCURRENT_VIDEOS} slots")
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    logger.info("Shutting down video processor...")
+
+    # Gracefully shutdown the thread pool
+    video_executor.shutdown(wait=True)
+    logger.info("✅ ThreadPoolExecutor shutdown complete")
 
 if __name__ == '__main__':
     import uvicorn
