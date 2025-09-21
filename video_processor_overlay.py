@@ -461,7 +461,7 @@ class VideoProcessorOverlay:
 
                 # CRITICAL FIX: Handle invalid bounding box (height=0 issue)
                 if text_height <= 0 or text_width <= 0:
-St                    self.logger.warning(f"⚠️ Invalid textbbox for '{text}': {text_width}x{text_height}, using fallback sizing")
+                    self.logger.warning(f"⚠️ Invalid textbbox for '{text}': {text_width}x{text_height}, using fallback sizing")
                     # Fallback: estimate size based on font size and character count
                     estimated_char_width = self.font_size * 0.8  # Rough estimate
                     estimated_height = self.font_size * 1.2      # Rough estimate
