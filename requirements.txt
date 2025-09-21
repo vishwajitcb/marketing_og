@@ -25,4 +25,4 @@ certifi>=2021.5.25
 # Additional utilities
 typing-extensions>=4.0.0
 gunicorn>=21.0.0
-I 
+redis>=5.0.0

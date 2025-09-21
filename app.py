@@ -34,6 +34,9 @@ from video_processor_overlay import VideoProcessorOverlay
 # Import cleanup service
 from cleanup_scheduler import start_cleanup_service
 
+# Redis imports
+import redis
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -68,9 +71,32 @@ ALLOWED_EXTENSIONS = {'mp4'}
 # Ensure output directory exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Global dictionaries to track jobs and sessions
+# Redis connection
+redis_client = redis.Redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379'), decode_responses=True)
+
+# Fallback dictionaries (for backwards compatibility during transition)
 video_jobs: Dict[str, Dict] = {}
 user_sessions: Dict[str, Dict] = {}
+
+# Redis helper functions
+def set_job_status(job_id: str, job_data: dict):
+    """Set job status in Redis"""
+    try:
+        redis_client.setex(f"job:{job_id}", 3600, json.dumps(job_data))  # 1 hour expiry
+    except:
+        # Fallback to memory
+        video_jobs[job_id] = job_data
+
+def get_job_status(job_id: str) -> dict:
+    """Get job status from Redis"""
+    try:
+        data = redis_client.get(f"job:{job_id}")
+        if data:
+            return json.loads(data)
+    except:
+        pass
+    # Fallback to memory
+    return video_jobs.get(job_id, {})
 
 # Setup static files and templates
 templates = Jinja2Templates(directory="templates")
@@ -287,8 +313,10 @@ async def generate_video_async(job_id: str, name: str, birthday: str, output_pat
     """Generate video asynchronously"""
     try:
         logger.info(f"Starting async video generation for job {job_id}")
-        video_jobs[job_id]['status'] = 'processing'
-        video_jobs[job_id]['message'] = 'Processing video...'
+        job_data = get_job_status(job_id)
+        job_data['status'] = 'processing'
+        job_data['message'] = 'Processing video...'
+        set_job_status(job_id, job_data)
 
         processor = VideoProcessorOverlay(font_size=120)
         success = processor.process_video(INPUT_VIDEO, output_path, name, birthday)
@@ -296,26 +324,30 @@ async def generate_video_async(job_id: str, name: str, birthday: str, output_pat
         logger.info(f"Video processing result - success: {success}, file exists: {os.path.exists(output_path)}, path: {output_path}")
 
         if success and os.path.exists(output_path):
-            video_jobs[job_id]['status'] = 'completed'
-            video_jobs[job_id]['message'] = 'Video generation completed!'
-            video_jobs[job_id]['download_url'] = f"/download/{os.path.basename(output_path)}"
-            video_jobs[job_id]['video_url'] = f"/video/{os.path.basename(output_path)}"
+            job_data['status'] = 'completed'
+            job_data['message'] = 'Video generation completed!'
+            job_data['download_url'] = f"/download/{os.path.basename(output_path)}"
+            job_data['video_url'] = f"/video/{os.path.basename(output_path)}"
+            set_job_status(job_id, job_data)
             logger.info(f"✅ Job {job_id} marked as completed: {output_path}")
         else:
-            video_jobs[job_id]['status'] = 'failed'
-            video_jobs[job_id]['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
-            video_jobs[job_id]['message'] = 'Generation failed - high server load'
+            job_data['status'] = 'failed'
+            job_data['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
+            job_data['message'] = 'Generation failed - high server load'
+            set_job_status(job_id, job_data)
             logger.error(f"❌ Job {job_id} marked as failed - success: {success}, exists: {os.path.exists(output_path)}")
 
     except Exception as e:
-        video_jobs[job_id]['status'] = 'failed'
+        job_data = get_job_status(job_id)
+        job_data['status'] = 'failed'
         # Provide user-friendly error message for high demand scenarios
         if "timeout" in str(e).lower() or "memory" in str(e).lower():
-            video_jobs[job_id]['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
-            video_jobs[job_id]['message'] = 'Generation failed - high server load'
+            job_data['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
+            job_data['message'] = 'Generation failed - high server load'
         else:
-            video_jobs[job_id]['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
-            video_jobs[job_id]['message'] = 'Generation failed - please retry'
+            job_data['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
+            job_data['message'] = 'Generation failed - please retry'
+        set_job_status(job_id, job_data)
         logger.error(f"Async video generation error for job {job_id}: {e}")
 
 def cleanup_old_files():
@@ -403,26 +435,23 @@ async def generate_video(request: Request, data: GenerateRequest, background_tas
             }
 
         job_id = str(uuid.uuid4())
-        video_jobs[job_id] = {
+        job_data = {
             'name': data.name,
             'birthday': data.birthday,
             'output_path': output_path,
             'session_id': session_id,
-            'created_at': time.time()
+            'created_at': time.time(),
+            'job_id': job_id,
+            'status': 'queued',
+            'message': 'Video generation started. Please wait...',
+            'download_url': None
         }
+        set_job_status(job_id, job_data)
 
         user_sessions[session_id]['files'].append({
             'filename': output_filename,
             'job_id': job_id,
             'created_at': time.time()
-        })
-
-        video_jobs[job_id].update({
-            'job_id': job_id,
-            'session_id': session_id,
-            'status': 'queued',
-            'message': 'Video generation started. Please wait...',
-            'download_url': None
         })
 
         # Extract and translate data for preview
@@ -454,10 +483,11 @@ async def generate_video(request: Request, data: GenerateRequest, background_tas
         raise HTTPException(status_code=500, detail="Video generation failed. Please try again.")
 
 @app.get("/status/{job_id}")
-async def get_job_status(job_id: str):
+async def get_job_status_endpoint(job_id: str):
     """Get video generation job status"""
-    if job_id not in video_jobs:
-        # Job was lost due to worker crash - return user-friendly error
+    job = get_job_status(job_id)
+    if not job:
+        # Job not found - return user-friendly error
         return JobStatusResponse(
             status='failed',
             message='Generation failed - high server load',
@@ -465,7 +495,6 @@ async def get_job_status(job_id: str):
             error='Video could not be generated due to high demand. Please try again after 10 minutes.'
         )
 
-    job = video_jobs[job_id]
     return JobStatusResponse(
         status=job.get('status', 'unknown'),
         message=job.get('message', ''),
@@ -624,6 +653,13 @@ async def startup_event():
     logger.info("Starting FastAPI video processor web server...")
     logger.info(f"Input video: {INPUT_VIDEO}")
     logger.info(f"Output directory: {OUTPUT_DIR}")
+
+    # Test Redis connection
+    try:
+        redis_client.ping()
+        logger.info("✅ Redis connection successful")
+    except Exception as e:
+        logger.warning(f"⚠️ Redis connection failed, using memory fallback: {e}")
 
     # Start the cleanup service
     start_cleanup_service()

@@ -4,9 +4,11 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies including FFmpeg
+# Install system dependencies including FFmpeg and Redis
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    redis-server \
+    redis-tools \
     libsm6 \
     libxext6 \
     libxrender-dev \
@@ -24,11 +26,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Copy and setup entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Create data directories
 RUN mkdir -p /data/outputs outputs
 
 # Expose port
 EXPOSE 8000
 
-# Run the application with multiple workers for high throughput
-CMD ["gunicorn", "app:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "300", "--worker-connections", "1000", "--max-requests", "1000", "--max-requests-jitter", "100", "--preload"]
+# Use entrypoint script to start Redis and app
+ENTRYPOINT ["/entrypoint.sh"]
