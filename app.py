@@ -356,7 +356,6 @@ def generate_video_with_semaphore(job_id: str, name: str, birthday: str, output_
                 # Increment video counter for successful generation
                 try:
                     redis_client.incr("total_videos_generated")
-                    logger.info(f"📊 Incremented video counter")
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to increment video counter: {e}")
 

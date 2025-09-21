@@ -185,7 +185,7 @@ class VideoProcessorOverlay:
                 result = subprocess.run([FFMPEG_PATH, '-version'], 
                                       capture_output=True, text=True, timeout=10)
                 if result.returncode == 0:
-                    self.logger.info(f"✅ FFmpeg is available and ready for audio processing: {FFMPEG_PATH}")
+                    pass  # Removed log(f"✅ FFmpeg is available and ready for audio processing: {FFMPEG_PATH}")
                 else:
                     self.logger.warning("⚠️ FFmpeg found but not working properly")
                     FFMPEG_AVAILABLE = False
@@ -198,16 +198,16 @@ class VideoProcessorOverlay:
             try:
                 # Test basic MoviePy functionality
                 test_clip = VideoFileClip
-                self.logger.info("✅ MoviePy is available as backup for audio processing")
+                pass  # Removed log("✅ MoviePy is available as backup for audio processing")
             except Exception as e:
                 self.logger.warning(f"⚠️ MoviePy import failed: {e}")
                 MOVIEPY_AVAILABLE = False
         
         # Final status
         if FFMPEG_AVAILABLE:
-            self.logger.info("🎵 Audio processing: FFmpeg (primary)")
+            pass  # Removed log("🎵 Audio processing: FFmpeg (primary)")
         elif MOVIEPY_AVAILABLE:
-            self.logger.info("🎵 Audio processing: MoviePy (backup)")
+            pass  # Removed log("🎵 Audio processing: MoviePy (backup)")
         else:
             self.logger.warning("⚠️ No audio processing tools available - videos will be processed without audio")
             self.logger.warning("⚠️ Install FFmpeg with: conda install -c conda-forge ffmpeg")
@@ -252,7 +252,7 @@ class VideoProcessorOverlay:
         try:
             # Use RAQM layout engine for proper Japanese text rendering
             font = ImageFont.truetype(font_path, effective_font_size, layout_engine=ImageFont.Layout.RAQM)
-            self.logger.info(f"✅ Using HiraginoSans.ttc with RAQM layout (size: {effective_font_size})")
+            pass  # Removed log(f"# Using HiraginoSans.ttc with RAQM layout (size: {effective_font_size})")
             return font
         except Exception as e:
             self.logger.error(f"❌ Could not load HiraginoSans.ttc: {e}")
@@ -271,11 +271,11 @@ class VideoProcessorOverlay:
                     # Try bold version first, then regular
                     try:
                         font = ImageFont.truetype(font_path, self.font_size, index=1)  # Try bold
-                        self.logger.info(f"✅ Using system font (bold): {font_path}")
+                        pass  # Removed log(f"# Using system font (bold): {font_path}")
                         return font
                     except:
                         font = ImageFont.truetype(font_path, self.font_size, index=0)  # Regular
-                        self.logger.info(f"✅ Using system font (regular): {font_path}")
+                        pass  # Removed log(f"# Using system font (regular): {font_path}")
                         return font
                 except:
                     continue
@@ -287,11 +287,11 @@ class VideoProcessorOverlay:
                 # Try bold version first, then regular
                 try:
                     font = ImageFont.truetype(downloaded_font, self.font_size, index=1)  # Try bold
-                    self.logger.info(f"✅ Using downloaded font (bold): {downloaded_font}")
+                    pass  # Removed log(f"# Using downloaded font (bold): {downloaded_font}")
                     return font
                 except:
                     font = ImageFont.truetype(downloaded_font, self.font_size, index=0)  # Regular
-                    self.logger.info(f"✅ Using downloaded font (regular): {downloaded_font}")
+                    pass  # Removed log(f"# Using downloaded font (regular): {downloaded_font}")
                     return font
             except:
                 pass
@@ -318,7 +318,7 @@ class VideoProcessorOverlay:
             if os.path.exists(font_path):
                 try:
                     font = ImageFont.truetype(font_path, geishta_font_size)
-                    self.logger.info(f"✅ Using Geishta font: {font_path} (size: {geishta_font_size})")
+                    pass  # Removed log(f"# Using Geishta font: {font_path} (size: {geishta_font_size})")
                     return font
                 except Exception as e:
                     self.logger.warning(f"❌ Could not load Geishta font {font_path}: {e}")
@@ -478,7 +478,7 @@ class VideoProcessorOverlay:
                     estimated_height = self.font_size * 1.2      # Rough estimate
                     text_width = int(estimated_char_width * len(text))
                     text_height = int(estimated_height)
-                    self.logger.info(f"📏 Using fallback dimensions: {text_width}x{text_height}")
+                    pass  # Removed log(f"📏 Using fallback dimensions: {text_width}x{text_height}")
 
                 x = (width - text_width) // 2
                 y = (height - text_height) // 2
@@ -498,7 +498,7 @@ class VideoProcessorOverlay:
                     draw.text((x, y), text, fill=(255, 0, 0, 255), font=font_to_use, language="ja")
                     font_name = "Japanese"
 
-                self.logger.info(f"✅ {font_name} text '{text}' positioned at ({x}, {y}) with size {text_width}x{text_height}")
+                # Removed verbose text positioning logs
             except Exception as e:
                 self.logger.error(f"❌ Text positioning error for '{text}': {e}")
                 # Enhanced fallback with better positioning
@@ -508,7 +508,7 @@ class VideoProcessorOverlay:
                     scaled_shift = int(660 * scale_factor)
                     y_pos = y_pos - scaled_shift
                 draw.text((width // 2 - 100, y_pos - 50), text, fill=(255, 0, 0, 255), font=font_to_use)
-                self.logger.info(f"⚠️ Used exception fallback positioning for '{text}' at ({width // 2 - 100}, {y_pos - 50})")
+                pass  # Removed log(f"⚠️ Used exception fallback positioning for '{text}' at ({width // 2 - 100}, {y_pos - 50})")
         else:
             # EXACT COPY from lean version fallback
             y_pos = height // 4 if height > width else height // 2
@@ -520,7 +520,7 @@ class VideoProcessorOverlay:
         
         # Save as PNG file
         img.save(filename, 'PNG')
-        self.logger.info(f"✅ Created overlay PNG: {filename}")
+        # Removed verbose overlay PNG creation logs
         return filename
     
     def _create_text_overlay(self, text: str, width: int, height: int, shift_up: bool = False, use_geishta: bool = False, font_size: int = None, scale_factor: float = 1.0) -> np.ndarray:
@@ -567,11 +567,11 @@ class VideoProcessorOverlay:
             import glob
             leftover_files = glob.glob("temp_overlay_*.png")
             if leftover_files:
-                self.logger.info(f"🧹 Found {len(leftover_files)} leftover temporary files, cleaning up...")
+                pass  # Removed log(f"🧹 Found {len(leftover_files)} leftover temporary files, cleaning up...")
                 for leftover_file in leftover_files:
                     try:
                         os.remove(leftover_file)
-                        self.logger.info(f"Cleaned up leftover file: {leftover_file}")
+                        pass  # Removed log(f"Cleaned up leftover file: {leftover_file}")
                     except Exception as e:
                         self.logger.warning(f"Could not remove leftover file {leftover_file}: {e}")
         except Exception as e:
@@ -590,16 +590,12 @@ class VideoProcessorOverlay:
             x, y, z = self._extract_data(name, birthday)
             m, n, o = self._translate_to_japanese(x), self._translate_to_japanese(y), self._translate_to_japanese(z)
             
-            self.logger.info(f"Extracted: {x}, {y}, {z} -> Translated: {m}, {n}, {o}")
-            self.logger.info(f"Overlay timestamps: {self.overlay_timestamps}")
+            # Removed debug logs
             
-            # Extract audio first - CRITICAL STEP
-            self.logger.info("🎵 STEP 1: Extracting audio from original video...")
+            # Extract audio first
             temp_audio_path = self._extract_audio(input_path)
-            if temp_audio_path:
-                self.logger.info(f"✅ Audio extraction successful: {temp_audio_path}")
-            else:
-                self.logger.warning("⚠️ Audio extraction failed - video will be processed without audio")
+            if not temp_audio_path:
+                self.logger.warning("⚠️ Audio extraction failed")
             
             # Create temporary video path for processing without audio
             temp_video_path = tempfile.mktemp(suffix='.mp4')
@@ -620,14 +616,13 @@ class VideoProcessorOverlay:
             width = original_width // 2
             height = original_height // 2
 
-            self.logger.info(f"Video properties - FPS: {fps}, Original: {original_width}x{original_height}, Processing: {width}x{height}, Duration: {duration:.2f}s")
-            self.logger.info(f"💾 Memory optimization: Processing at {width}x{height} to reduce RAM usage by ~75%")
-            
+            self.logger.info(f"🎬 Processing video: {name} ({duration:.1f}s)")
+
             # Calculate scaled font size based on processing resolution
             # Original font was designed for 1080x1920, scale proportionally
             scale_factor = height / 1920.0  # height ratio for scaling
             scaled_font_size = int(self.font_size * scale_factor)
-            self.logger.info(f"🔤 Font scaling: Original {self.font_size} → Scaled {scaled_font_size} (scale: {scale_factor:.2f})")
+            # Removed verbose font scaling log
 
             # Create text overlays for each slot
             japanese_name = self._translate_to_japanese(name)  # Full name in Japanese
@@ -638,8 +633,7 @@ class VideoProcessorOverlay:
                 use_geishta = i == 5  # Use Geishta font for overlay 6 (English name)
                 overlay = self._create_text_overlay(char, width, height, shift_up, use_geishta, scaled_font_size, scale_factor)
                 text_overlays.append(overlay)
-                font_info = " (Geishta font)" if use_geishta else ""
-                self.logger.info(f"Created overlay {i+1}: '{char}'{font_info}")
+                # Removed verbose overlay creation logs
             
             # Setup video writer for temporary video (without audio)
             # Use mp4v for temporary video (will be converted to H.264 by FFmpeg)
@@ -654,27 +648,22 @@ class VideoProcessorOverlay:
             out.release()
 
             # Process video using FFmpeg optimization
-            self.logger.info(f"🚀 Processing video with FFmpeg - Duration: {duration:.2f}s")
             success = self._process_video_with_ffmpeg_overlays_fixed(input_path, temp_video_path, text_overlays, characters, width, height, original_width, original_height)
 
-            if success:
-                self.logger.info("✅ Video processed successfully using FFmpeg optimization")
-            else:
+            if not success:
                 self.logger.error("❌ FFmpeg processing failed")
                 return False
             
-            # Add audio back to the processed video - CRITICAL STEP
+            # Add audio back to the processed video
+            self.logger.info("🎵 Adding audio")
             if temp_audio_path and os.path.exists(temp_audio_path):
-                self.logger.info("🎵 STEP 2: Adding audio back to processed video...")
                 audio_success = self._add_audio_to_video(temp_video_path, temp_audio_path, output_path)
-                if audio_success:
-                    self.logger.info("✅ Audio successfully added to final video")
-                else:
+                if not audio_success:
                     self.logger.warning("⚠️ Failed to add audio, copying video without audio")
                     import shutil
                     shutil.copy2(temp_video_path, output_path)
             else:
-                self.logger.info("⚠️ No audio file available, copying video without audio")
+                pass  # Removed log("⚠️ No audio file available, copying video without audio")
                 import shutil
                 shutil.copy2(temp_video_path, output_path)
             
@@ -683,11 +672,11 @@ class VideoProcessorOverlay:
             if temp_video_path and os.path.exists(temp_video_path):
                 try:
                     os.remove(temp_video_path)
-                    self.logger.info(f"Cleaned up temporary video file: {temp_video_path}")
+                    pass  # Removed log(f"Cleaned up temporary video file: {temp_video_path}")
                 except Exception as e:
                     self.logger.warning(f"Could not remove temporary video file {temp_video_path}: {e}")
             
-            self.logger.info(f"✅ Video processing completed. Output saved to: {output_path}")
+            self.logger.info(f"✅ Video completed: {output_path}")
             return True
             
         except Exception as e:
@@ -719,7 +708,7 @@ class VideoProcessorOverlay:
     def _extract_audio_ffmpeg(self, input_path: str) -> Optional[str]:
         """Extract audio using FFmpeg (preferred method)"""
         try:
-            self.logger.info(f"🎵 Extracting audio with FFmpeg from: {input_path}")
+            pass  # Removed log(f"Extracting audio with FFmpeg from: {input_path}")
             
             # Create temporary audio file
             temp_audio_path = tempfile.mktemp(suffix='.wav')
@@ -736,7 +725,7 @@ class VideoProcessorOverlay:
                 temp_audio_path             # Output audio file
             ]
             
-            self.logger.info(f"🎵 Running FFmpeg command: {' '.join(cmd)}")
+            # Removed verbose FFmpeg audio command log
             
             # Run FFmpeg command
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
@@ -744,7 +733,7 @@ class VideoProcessorOverlay:
             if result.returncode == 0:
                 # Verify the audio file was created and has content
                 if os.path.exists(temp_audio_path) and os.path.getsize(temp_audio_path) > 0:
-                    self.logger.info(f"✅ Audio successfully extracted with FFmpeg: {temp_audio_path} ({os.path.getsize(temp_audio_path)} bytes)")
+                    pass  # Removed log(f"Audio extracted")
                     return temp_audio_path
                 else:
                     self.logger.warning("⚠️ FFmpeg completed but audio file is empty")
@@ -764,12 +753,12 @@ class VideoProcessorOverlay:
     def _extract_audio_moviepy(self, input_path: str) -> Optional[str]:
         """Extract audio using MoviePy (fallback method)"""
         try:
-            self.logger.info(f"🎵 Extracting audio with MoviePy from: {input_path}")
+            pass  # Removed log(f"Extracting audio with MoviePy from: {input_path}")
             # Load video and check for audio
             video_clip = VideoFileClip(input_path)
             
             if video_clip.audio is not None:
-                self.logger.info("🎵 Audio track found, extracting...")
+                pass  # Removed log("🎵 Audio track found, extracting...")
                 # Create temporary audio file
                 temp_audio_path = tempfile.mktemp(suffix='.wav')
                 
@@ -783,7 +772,7 @@ class VideoProcessorOverlay:
                 
                 # Verify the audio file was created and has content
                 if os.path.exists(temp_audio_path) and os.path.getsize(temp_audio_path) > 0:
-                    self.logger.info(f"✅ Audio successfully extracted with MoviePy: {temp_audio_path} ({os.path.getsize(temp_audio_path)} bytes)")
+                    pass  # Removed log(f"Audio extracted")
                     audio_clip.close()
                     video_clip.close()
                     return temp_audio_path
@@ -817,7 +806,7 @@ class VideoProcessorOverlay:
                 success = cv2.imwrite(temp_overlay, overlay)
                 if success and os.path.exists(temp_overlay):
                     file_size = os.path.getsize(temp_overlay)
-                    self.logger.info(f"📝 Saved overlay {i+1} '{characters[i]}' to {temp_overlay} ({file_size} bytes)")
+                    # Removed verbose overlay save logs
                     overlay_files.append(temp_overlay)
                 else:
                     self.logger.error(f"❌ Failed to save overlay {i+1} to {temp_overlay}")
@@ -825,7 +814,7 @@ class VideoProcessorOverlay:
 
             # Build complex FFmpeg filter with scaling
             filter_complex = self._build_ffmpeg_filter_complex_with_scaling(overlay_files, characters, width, height, original_width or width, original_height or height)
-            self.logger.info(f"📐 FFmpeg filter complex: {filter_complex[:200]}...")  # Log first 200 chars
+            # Removed verbose FFmpeg filter complex log
 
             # Build FFmpeg command
             cmd = [
@@ -849,15 +838,15 @@ class VideoProcessorOverlay:
                 output_path
             ])
 
-            self.logger.info(f"🚀 Running FFmpeg overlay command...")
-            self.logger.info(f"FFmpeg path: {FFMPEG_PATH}")
-            self.logger.info(f"FFmpeg command: {' '.join(cmd[:10])}... ({len(cmd)} total args)")
+            # Removed verbose FFmpeg command logs
 
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-                self.logger.info(f"✅ FFmpeg subprocess completed with return code: {result.returncode}")
-                if result.stderr:
-                    self.logger.info(f"FFmpeg stderr: {result.stderr[:500]}")  # Log first 500 chars
+                # Only log FFmpeg errors, not success details
+                if result.returncode != 0:
+                    self.logger.error(f"❌ FFmpeg failed with return code: {result.returncode}")
+                    if result.stderr:
+                        self.logger.error(f"FFmpeg stderr: {result.stderr[:500]}")
             except FileNotFoundError as e:
                 self.logger.error(f"❌ FFmpeg not found: {e}")
                 return False
@@ -872,10 +861,10 @@ class VideoProcessorOverlay:
                 return False
 
             if result.returncode == 0:
-                self.logger.info("✅ FFmpeg overlay processing completed successfully")
+                # Removed verbose FFmpeg success log
                 # Verify output file was created
                 if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-                    self.logger.info(f"✅ Output video created: {output_path} ({os.path.getsize(output_path)} bytes)")
+                    pass  # File created successfully
                 # Cleanup temporary overlay files
                 for overlay_file in overlay_files:
                     try:
@@ -974,9 +963,9 @@ class VideoProcessorOverlay:
     def _add_audio_ffmpeg(self, video_path: str, audio_path: str, output_path: str) -> bool:
         """Add audio to video using FFmpeg (preferred method)"""
         try:
-            self.logger.info(f"🎵 Adding audio with FFmpeg to: {output_path}")
-            self.logger.info(f"🎵 Video: {video_path}")
-            self.logger.info(f"🎵 Audio: {audio_path}")
+            pass  # Removed log(f"Adding audio with FFmpeg to: {output_path}")
+            pass  # Removed log(f"🎵 Video: {video_path}")
+            pass  # Removed log(f"🎵 Audio: {audio_path}")
             
             # Verify files exist
             if not os.path.exists(video_path):
@@ -1003,7 +992,7 @@ class VideoProcessorOverlay:
                 output_path                 # Output file
             ]
             
-            self.logger.info(f"🎵 Running FFmpeg command: {' '.join(cmd)}")
+            # Removed verbose FFmpeg audio command log
             
             # Run FFmpeg command
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
@@ -1011,7 +1000,7 @@ class VideoProcessorOverlay:
             if result.returncode == 0:
                 # Verify output file was created
                 if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-                    self.logger.info(f"✅ Audio successfully added with FFmpeg: {output_path} ({os.path.getsize(output_path)} bytes)")
+                    pass  # Removed log(f"Audio added")
                     return True
                 else:
                     self.logger.error("❌ FFmpeg completed but output file is empty")
@@ -1031,9 +1020,9 @@ class VideoProcessorOverlay:
     def _add_audio_moviepy(self, video_path: str, audio_path: str, output_path: str) -> bool:
         """Add audio to video using MoviePy (fallback method)"""
         try:
-            self.logger.info(f"🎵 Adding audio with MoviePy to: {output_path}")
-            self.logger.info(f"🎵 Loading processed video: {video_path}")
-            self.logger.info(f"🎵 Loading extracted audio: {audio_path}")
+            pass  # Removed log(f"Adding audio with MoviePy to: {output_path}")
+            pass  # Removed log(f"🎵 Loading processed video: {video_path}")
+            pass  # Removed log(f"🎵 Loading extracted audio: {audio_path}")
             
             # Verify files exist
             if not os.path.exists(video_path):
@@ -1047,20 +1036,20 @@ class VideoProcessorOverlay:
             video_clip = VideoFileClip(video_path)
             audio_clip = VideoFileClip(audio_path).audio
             
-            self.logger.info(f"🎵 Video duration: {video_clip.duration:.2f}s, Audio duration: {audio_clip.duration:.2f}s")
+            pass  # Removed log(f"🎵 Video duration: {video_clip.duration:.2f}s, Audio duration: {audio_clip.duration:.2f}s")
             
             # Ensure audio matches video duration
             if audio_clip.duration > video_clip.duration:
-                self.logger.info("🎵 Trimming audio to match video duration")
+                pass  # Removed log("🎵 Trimming audio to match video duration")
                 audio_clip = audio_clip.subclip(0, video_clip.duration)
             elif audio_clip.duration < video_clip.duration:
-                self.logger.info("🎵 Audio is shorter than video, will loop if needed")
+                pass  # Removed log("🎵 Audio is shorter than video, will loop if needed")
             
             # Combine video and audio
             final_clip = video_clip.set_audio(audio_clip)
             
             # Write final video with audio
-            self.logger.info(f"🎵 Writing final video with audio to: {output_path}")
+            pass  # Removed log(f"🎵 Writing final video with audio to: {output_path}")
             final_clip.write_videofile(
                 output_path, 
                 logger=None,
@@ -1072,7 +1061,7 @@ class VideoProcessorOverlay:
             
             # Verify output file was created
             if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-                self.logger.info(f"✅ Audio successfully added with MoviePy: {output_path} ({os.path.getsize(output_path)} bytes)")
+                pass  # Removed log(f"Audio added")
                 success = True
             else:
                 self.logger.error("❌ Output file was not created or is empty")
@@ -1099,7 +1088,7 @@ class VideoProcessorOverlay:
             try:
                 if os.path.exists(temp_filename):
                     os.remove(temp_filename)
-                    self.logger.info(f"Cleaned up temporary file: {temp_filename}")
+                    pass  # Removed log(f"Cleaned up temporary file: {temp_filename}")
             except Exception as e:
                 self.logger.warning(f"Could not remove temporary file {temp_filename}: {e}")
         
@@ -1110,7 +1099,7 @@ class VideoProcessorOverlay:
             for leftover_file in leftover_files:
                 try:
                     os.remove(leftover_file)
-                    self.logger.info(f"Cleaned up leftover temporary file: {leftover_file}")
+                    pass  # Removed log(f"Cleaned up leftover temporary file: {leftover_file}")
                 except Exception as e:
                     self.logger.warning(f"Could not remove leftover file {leftover_file}: {e}")
         except Exception as e:
@@ -1120,7 +1109,7 @@ class VideoProcessorOverlay:
         if temp_audio_path and os.path.exists(temp_audio_path):
             try:
                 os.remove(temp_audio_path)
-                self.logger.info(f"Cleaned up temporary audio file: {temp_audio_path}")
+                pass  # Removed log(f"Cleaned up temporary audio file: {temp_audio_path}")
             except Exception as e:
                 self.logger.warning(f"Could not remove temporary audio file {temp_audio_path}: {e}")
 
