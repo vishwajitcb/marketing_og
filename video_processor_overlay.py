@@ -827,9 +827,21 @@ class VideoProcessorOverlay:
             ])
 
             self.logger.info(f"🚀 Running FFmpeg overlay command...")
-            self.logger.debug(f"FFmpeg command: {' '.join(cmd)}")
+            self.logger.info(f"FFmpeg path: {FFMPEG_PATH}")
+            self.logger.info(f"FFmpeg command: {' '.join(cmd[:10])}... ({len(cmd)} total args)")
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+                self.logger.info(f"✅ FFmpeg subprocess completed with return code: {result.returncode}")
+            except FileNotFoundError as e:
+                self.logger.error(f"❌ FFmpeg not found: {e}")
+                return False
+            except PermissionError as e:
+                self.logger.error(f"❌ FFmpeg permission denied: {e}")
+                return False
+            except Exception as e:
+                self.logger.error(f"❌ FFmpeg subprocess failed: {e}")
+                return False
 
             if result.returncode == 0:
                 self.logger.info("✅ FFmpeg overlay processing completed successfully")
