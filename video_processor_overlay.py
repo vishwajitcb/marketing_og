@@ -821,8 +821,10 @@ class VideoProcessorOverlay:
                 '-filter_complex', filter_complex,
                 '-map', '[final]',  # Map final output
                 '-c:v', 'libx264',  # Video codec
-                '-preset', 'fast',   # Fast encoding
-                '-crf', '23',       # Good quality
+                '-preset', 'ultrafast',   # Fastest encoding
+                '-crf', '30',       # Lower quality for speed
+                '-threads', '4',    # Use multiple threads
+                '-tune', 'fastdecode',  # Optimize for speed
                 output_path
             ])
 
@@ -831,7 +833,7 @@ class VideoProcessorOverlay:
             self.logger.info(f"FFmpeg command: {' '.join(cmd[:10])}... ({len(cmd)} total args)")
 
             try:
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=50)
                 self.logger.info(f"✅ FFmpeg subprocess completed with return code: {result.returncode}")
             except FileNotFoundError as e:
                 self.logger.error(f"❌ FFmpeg not found: {e}")
