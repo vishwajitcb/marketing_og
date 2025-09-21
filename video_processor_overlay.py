@@ -825,6 +825,7 @@ class VideoProcessorOverlay:
                 '-crf', '30',       # Lower quality for speed
                 '-threads', '4',    # Use multiple threads
                 '-tune', 'fastdecode',  # Optimize for speed
+                '-vf', 'scale=720:1280'  # Reduce resolution for speed
                 output_path
             ])
 
@@ -835,11 +836,16 @@ class VideoProcessorOverlay:
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=50)
                 self.logger.info(f"✅ FFmpeg subprocess completed with return code: {result.returncode}")
+                if result.stderr:
+                    self.logger.info(f"FFmpeg stderr: {result.stderr[:500]}")  # Log first 500 chars
             except FileNotFoundError as e:
                 self.logger.error(f"❌ FFmpeg not found: {e}")
                 return False
             except PermissionError as e:
                 self.logger.error(f"❌ FFmpeg permission denied: {e}")
+                return False
+            except subprocess.TimeoutExpired as e:
+                self.logger.error(f"❌ FFmpeg timeout after 50 seconds: {e}")
                 return False
             except Exception as e:
                 self.logger.error(f"❌ FFmpeg subprocess failed: {e}")

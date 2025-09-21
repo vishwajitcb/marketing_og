@@ -293,17 +293,19 @@ async def generate_video_async(job_id: str, name: str, birthday: str, output_pat
         processor = VideoProcessorOverlay(font_size=120)
         success = processor.process_video(INPUT_VIDEO, output_path, name, birthday)
 
+        logger.info(f"Video processing result - success: {success}, file exists: {os.path.exists(output_path)}, path: {output_path}")
+
         if success and os.path.exists(output_path):
             video_jobs[job_id]['status'] = 'completed'
             video_jobs[job_id]['message'] = 'Video generation completed!'
             video_jobs[job_id]['download_url'] = f"/download/{os.path.basename(output_path)}"
             video_jobs[job_id]['video_url'] = f"/video/{os.path.basename(output_path)}"
-            logger.info(f"Video generation completed for job {job_id}: {output_path}")
+            logger.info(f"✅ Job {job_id} marked as completed: {output_path}")
         else:
             video_jobs[job_id]['status'] = 'failed'
             video_jobs[job_id]['error'] = 'Video could not be generated due to high demand. Please try again after 10 minutes.'
             video_jobs[job_id]['message'] = 'Generation failed - high server load'
-            logger.error(f"Video generation failed for job {job_id}")
+            logger.error(f"❌ Job {job_id} marked as failed - success: {success}, exists: {os.path.exists(output_path)}")
 
     except Exception as e:
         video_jobs[job_id]['status'] = 'failed'
