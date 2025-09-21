@@ -62,7 +62,7 @@ app.add_middleware(SlowAPIMiddleware)
 
 # Configuration
 INPUT_VIDEO = 'test.mp4'
-OUTPUT_DIR = 'outputs'
+OUTPUT_DIR = os.getenv('SSD_MOUNT_PATH', '/data/outputs')
 ALLOWED_EXTENSIONS = {'mp4'}
 
 # Ensure output directory exists
