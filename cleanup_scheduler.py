@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = 'outputs'
+OUTPUT_DIR = os.getenv('SSD_MOUNT_PATH', '/data/outputs')
 CLEANUP_INTERVAL = 300  # 5 minutes
 MAX_FILE_AGE = 900  # 15 minutes
 
