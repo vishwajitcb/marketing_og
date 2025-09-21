@@ -85,26 +85,13 @@ class VideoProcessor {
     }
     
     setupCleanupHandlers() {
-        // Clean up files when user leaves the page
-        window.addEventListener('beforeunload', () => {
-            // Use sendBeacon for reliable cleanup even if page is closing
-            if (navigator.sendBeacon) {
-                const data = JSON.stringify({ session_id: this.sessionId });
-                navigator.sendBeacon('/cleanup', data);
-            } else {
-                // Fallback for older browsers
-                this.cleanupSessionFiles();
-            }
-        });
-        
-        // Also clean up on page hide (mobile browsers)
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                this.cleanupSessionFiles();
-            }
-        });
-        
-        // Clean up on new video generation (previous files) - button removed
+        // Disabled aggressive cleanup to allow video preview
+        // Auto-cleanup scheduler handles old files (15 minutes)
+
+        // Note: Removed beforeunload and visibilitychange cleanup
+        // to prevent videos from being deleted while user is watching
+
+        console.log('Cleanup handlers disabled - relying on server-side auto-cleanup');
     }
     
     setupInputValidation() {

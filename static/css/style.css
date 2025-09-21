@@ -29,6 +29,15 @@
     font-display: swap;
 }
 
+/* HiraginoSans Font for Japanese characters */
+@font-face {
+    font-family: 'HiraginoSans';
+    src: url('../../HiraginoSans.ttc') format('truetype-collection');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -58,7 +67,7 @@
 }
 
 body {
-    font-family: 'Shikamaru', 'Japan Daisuki', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Shikamaru', 'Japan Daisuki', 'HiraginoSans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     line-height: 1.6;
     color: var(--text-primary);
     background: url('../final_poster.jpeg') center center / cover no-repeat fixed;
@@ -377,6 +386,8 @@ body::before {
     font-size: 1.25rem;
     color: var(--text-primary);
     margin-top: 0.25rem;
+    font-family: 'HiraginoSans', 'Japan Daisuki', 'Shikamaru', 'Inter', sans-serif;
+    font-weight: normal;
 }
 
 /* Result Section */

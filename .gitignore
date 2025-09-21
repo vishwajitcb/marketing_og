@@ -134,7 +134,6 @@ dmypy.json
 
 # Video processing outputs
 outputs/*.mp4
-test.mp4
 
 # Generated image overlays
 japanese_text_overlay_*.png
@@ -157,11 +156,15 @@ translation_cache.json
 temp/
 tmp/
 
-# Font files (keep only the ones in static/fonts/)
+# Font files (keep only the ones in static/fonts/ and root directory)
 *.otf
 *.ttf
+*.ttc
 !static/fonts/*.otf
 !static/fonts/*.ttf
+!HiraginoSans.ttc
+!Geishta.ttf
+!Geishta.otf
 
 # Large media files (except specific ones needed)
 *.mp4
@@ -171,7 +174,9 @@ tmp/
 *.wmv
 *.flv
 *.webm
+!test.mp4
 !static/poster.webp
+!static/b_2.jpg
 
 # Audio files
 *.wav

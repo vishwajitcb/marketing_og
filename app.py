@@ -92,7 +92,48 @@ class JobStatusResponse(BaseModel):
     status: str
     message: str
     download_url: Optional[str] = None
+    video_url: Optional[str] = None
     error: Optional[str] = None
+
+# Japanese translation mappings
+JAPANESE_FALLBACK = {
+    # Common letter combinations
+    'JO': 'ジョ', 'TA': 'タ', 'AR': 'アル', 'LE': 'レ', 'CA': 'カ', 'GE': 'ゲ',
+    'AN': 'アン', 'IN': 'イン', 'ON': 'オン', 'EN': 'エン', 'UN': 'ウン',
+    'ER': 'エル', 'OR': 'オル', 'IR': 'イル', 'UR': 'ウル', 'AR': 'アル',
+
+    # Numbers (correct Japanese)
+    '0': '零', '1': '一', '2': '二', '3': '三', '4': '四', '5': '五',
+    '6': '六', '7': '七', '8': '八', '9': '九',
+    '10': '十', '11': '十一', '12': '十二', '13': '十三', '14': '十四', '15': '十五',
+    '16': '十六', '17': '十七', '18': '十八', '19': '十九', '20': '二十',
+    '21': '二十一', '22': '二十二', '23': '二十三', '24': '二十四', '25': '二十五',
+    '26': '二十六', '27': '二十七', '28': '二十八', '29': '二十九', '30': '三十',
+    '31': '三十一',
+
+    # Individual letters (basic katakana)
+    'A': 'ア', 'B': 'ビ', 'C': 'シ', 'D': 'ド', 'E': 'エ', 'F': 'フ', 'G': 'ジ', 'H': 'ハ',
+    'I': 'イ', 'J': 'ジ', 'K': 'ケ', 'L': 'ル', 'M': 'ム', 'N': 'ン', 'O': 'オ', 'P': 'ピ',
+    'Q': 'ク', 'R': 'ル', 'S': 'ス', 'T': 'ト', 'U': 'ウ', 'V': 'ブ', 'W': 'ウ', 'X': 'クス',
+    'Y': 'イ', 'Z': 'ズ'
+}
+
+def translate_to_japanese(text: str) -> str:
+    """Translate text to Japanese characters"""
+    if not text or not text.strip():
+        return ""
+
+    text = text.strip()
+
+    # Try exact match first
+    if text in JAPANESE_FALLBACK:
+        return JAPANESE_FALLBACK[text]
+
+    # Character-by-character fallback
+    result = ""
+    for char in text:
+        result += JAPANESE_FALLBACK.get(char, char)
+    return result
 
 # Helper functions (copied from Flask app)
 def is_valid_name(name: str) -> bool:
@@ -180,20 +221,21 @@ def get_extracted_data(name: str, birthday: str) -> Tuple[str, str, str, str, st
 
         y = str(day).zfill(2)
 
-        # Extract z from length
-        z = str(len(name)).zfill(2)
+        # Extract z from star sign
+        star_sign = get_star_sign(normalized_birthday)
+        z = star_sign[:2].upper()
 
-        # Basic Japanese translations (placeholder)
-        m = "ア"  # Katakana for x
-        n = "イ"  # Katakana for y
-        o = "ウ"  # Katakana for z
+        # Japanese translations using proper mappings
+        m = translate_to_japanese(x)  # Katakana for name letters
+        n = translate_to_japanese(y)  # Japanese for day number
+        o = translate_to_japanese(z)  # Katakana for star sign letters
 
         return x, y, z, m, n, o
 
     except Exception as e:
         logger.error(f"Data extraction error: {e}")
         # Return safe defaults
-        return "XX", "01", "01", "ア", "イ", "ウ"
+        return "XX", "01", "01", "XX", "十", "XX"
 
 def get_star_sign(birthday: str) -> str:
     """Get star sign from birthday with bulletproof error handling"""
@@ -255,6 +297,7 @@ async def generate_video_async(job_id: str, name: str, birthday: str, output_pat
             video_jobs[job_id]['status'] = 'completed'
             video_jobs[job_id]['message'] = 'Video generation completed!'
             video_jobs[job_id]['download_url'] = f"/download/{os.path.basename(output_path)}"
+            video_jobs[job_id]['video_url'] = f"/video/{os.path.basename(output_path)}"
             logger.info(f"Video generation completed for job {job_id}: {output_path}")
         else:
             video_jobs[job_id]['status'] = 'failed'
@@ -380,6 +423,10 @@ async def generate_video(request: Request, data: GenerateRequest, background_tas
             'download_url': None
         })
 
+        # Extract and translate data for preview
+        x, y, z, m, n, o = get_extracted_data(data.name, data.birthday)
+        star_sign = get_star_sign(normalize_birthday(data.birthday))
+
         # Start async video generation
         background_tasks.add_task(generate_video_async, job_id, data.name, data.birthday, output_path)
 
@@ -387,7 +434,14 @@ async def generate_video(request: Request, data: GenerateRequest, background_tas
             'success': True,
             'job_id': job_id,
             'session_id': session_id,
-            'message': 'Video generation started. Please wait...'
+            'message': 'Video generation started. Please wait...',
+            'data': {
+                'name': data.name,
+                'birthday': data.birthday,
+                'extracted': [x, y, z],
+                'japanese': [m, n, o],
+                'star_sign': star_sign
+            }
         })
 
     except HTTPException:
@@ -414,6 +468,7 @@ async def get_job_status(job_id: str):
         status=job.get('status', 'unknown'),
         message=job.get('message', ''),
         download_url=job.get('download_url'),
+        video_url=job.get('video_url'),
         error=job.get('error')
     )
 
