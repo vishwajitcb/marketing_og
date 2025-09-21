@@ -20,18 +20,24 @@ import subprocess
 import shutil
 
 def check_ffmpeg_availability():
-    """Check if FFmpeg is available"""
+    """Check if FFmpeg is available - prioritize imageio_ffmpeg for server deployment"""
     try:
-        # Try to find ffmpeg in PATH or common locations
+        # Try imageio_ffmpeg first (for server deployment)
+        import imageio_ffmpeg
+        ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+        if os.path.exists(ffmpeg_path):
+            return ffmpeg_path
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    try:
+        # Fallback to system ffmpeg in PATH
         ffmpeg_path = shutil.which('ffmpeg')
         if ffmpeg_path:
             return ffmpeg_path
-        
-        # Try conda environment path
-        conda_ffmpeg = '/home/anirudh09/miniconda3/bin/ffmpeg'
-        if os.path.exists(conda_ffmpeg):
-            return conda_ffmpeg
-            
+
         return None
     except:
         return None
@@ -825,7 +831,6 @@ class VideoProcessorOverlay:
                 '-crf', '30',       # Lower quality for speed
                 '-threads', '4',    # Use multiple threads
                 '-tune', 'fastdecode',  # Optimize for speed
-                '-vf', 'scale=720:1280',  # Reduce resolution for speed
                 output_path
             ])
 
